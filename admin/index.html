@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>NV Shop QuickPrint — Dashboard</title>
+<style>
+  :root{ --bg:#0f1115; --panel:#171a21; --accent:#5b8def; --accent2:#43c08a; --text:#eef1f6; --muted:#8a90a0; --border:#262b36; --warn:#e0a93c;}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--text);}
+  header{padding:18px 24px;border-bottom:1px solid var(--border);display:flex;justify-content:space-between;align-items:center;}
+  header h1{font-size:18px;margin:0;}
+  header span{color:var(--accent2);}
+  .status-dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--accent2);margin-right:6px;}
+  nav{display:flex;gap:8px;}
+  nav button{padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:#11141b;color:var(--muted);cursor:pointer;font-size:13px;}
+  nav button.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  .wrap{max-width:1000px;margin:0 auto;padding:20px;}
+  .order{background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:16px;margin-bottom:14px;display:flex;gap:16px;align-items:flex-start;}
+  .order .thumb{width:90px;height:120px;border-radius:8px;border:1px solid var(--border);background:#fff;display:flex;align-items:center;justify-content:center;font-size:28px;color:#888;}
+  .order .info{flex:1;}
+  .order .id{font-weight:700;font-size:16px;color:var(--accent);}
+  .tag{display:inline-block;font-size:11px;padding:3px 8px;border-radius:12px;background:#11141b;border:1px solid var(--border);color:var(--muted);margin-right:6px;margin-top:6px;}
+  .tag.paid{color:var(--warn);border-color:var(--warn);}
+  .tag.printed{color:var(--accent2);border-color:var(--accent2);}
+  .actions{display:flex;flex-direction:column;gap:8px;}
+  .actions button{padding:8px 14px;border-radius:8px;border:1px solid var(--border);background:#11141b;color:var(--text);cursor:pointer;font-size:13px;white-space:nowrap;}
+  .actions button.print{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600;}
+  .actions button.done{background:var(--accent2);border-color:var(--accent2);color:#fff;}
+  .empty{text-align:center;color:var(--muted);padding:60px 0;}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:20px;}
+  .rate-row{display:flex;justify-content:space-between;align-items:center;padding:14px 0;border-bottom:1px solid var(--border);}
+  .rate-row:last-child{border-bottom:none;}
+  .rate-row label{font-size:14px;color:var(--text);}
+  .rate-row .desc{font-size:12px;color:var(--muted);margin-top:2px;}
+  .rate-row input{width:100px;padding:8px;border-radius:8px;border:1px solid var(--border);background:#11141b;color:var(--text);font-size:14px;text-align:right;}
+  .save-btn{margin-top:18px;width:100%;padding:12px;border-radius:10px;border:none;background:var(--accent2);color:#fff;font-weight:600;cursor:pointer;}
+  .saved-msg{text-align:center;color:var(--accent2);font-size:13px;margin-top:10px;height:16px;}
+</style>
+</head>
+<body>
+<header>
+  <h1>🖨️ NV Shop QuickPrint <span>(live queue)</span></h1>
+  <nav>
+    <button id="navQueue" class="active">Order Queue</button>
+    <button id="navRates">Rate List</button>
+  </nav>
+</header>
+
+<div class="wrap" id="queueView">
+  <div id="orderList"><div class="empty">Loading orders...</div></div>
+</div>
+
+<div class="wrap hidden" id="ratesView" style="display:none;">
+  <div class="card">
+    <h2 style="margin-top:0;">Edit Rate List</h2>
+    <div class="note" style="margin-bottom:10px;background:#1a1f12;border:1px solid var(--warn);border-radius:8px;padding:10px;">
+      ⚠️ On free hosting (like Render's free tier), changes here apply
+      instantly but can be lost if the server restarts/sleeps and wakes up.
+      For prices that stay permanent no matter what, also set them as
+      Environment Variables in your hosting dashboard — see README for the
+      exact variable names (e.g. RATE_BW_A4, RATE_PVC_RETAILER, etc).
+      Environment Variables always win over what's set here.
+    </div>
+    <div class="rate-row">
+      <div><label>Black & White (per page)</label><div class="desc">Applies per A4 page, per copy</div></div>
+      <input type="number" id="rate_bw" min="0">
+    </div>
+    <div class="rate-row">
+      <div><label>Color (per page)</label><div class="desc">Applies per A4 page, per copy</div></div>
+      <input type="number" id="rate_color" min="0">
+    </div>
+    <div class="rate-row">
+      <div><label>ID Card — Black & White</label><div class="desc">Flat rate per card, per copy</div></div>
+      <input type="number" id="rate_id_bw" min="0">
+    </div>
+    <div class="rate-row">
+      <div><label>ID Card — Color</label><div class="desc">Flat rate per card, per copy</div></div>
+      <input type="number" id="rate_id_color" min="0">
+    </div>
+    <div class="rate-row">
+      <div><label>PVC Card — Retailer</label><div class="desc">Flat rate per card, per copy (bulk/business orders)</div></div>
+      <input type="number" id="rate_pvc_retailer" min="0">
+    </div>
+    <div class="rate-row">
+      <div><label>PVC Card — Customer</label><div class="desc">Flat rate per card, per copy (walk-in customer orders)</div></div>
+      <input type="number" id="rate_pvc_customer" min="0">
+    </div>
+    <button class="save-btn" id="saveRates">Save Rates</button>
+    <div class="saved-msg" id="savedMsg"></div>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <h2 style="margin-top:0;">Additional Charges</h2>
+    <div class="note" style="margin-bottom:10px;">Applied on top of every order's base price — use for GST, handling, operator charge, etc. Leave at 0 if not needed.</div>
+    <div class="rate-row">
+      <div><label>Flat charge (₹)</label><div class="desc">Added once per order, regardless of size</div></div>
+      <input type="number" id="rate_additional_flat" min="0">
+    </div>
+    <div class="rate-row">
+      <div><label>Percentage charge (%)</label><div class="desc">e.g. 5 for 5% GST on the base price</div></div>
+      <input type="number" id="rate_additional_percent" min="0" step="0.1">
+    </div>
+    <button class="save-btn" id="saveAdditional">Save Additional Charges</button>
+    <div class="saved-msg" id="savedAdditionalMsg"></div>
+  </div>
+
+  <div class="card" style="margin-top:16px;">
+    <h2 style="margin-top:0;">UPI Payment ID</h2>
+    <div class="rate-row">
+      <div><label>Your UPI ID</label><div class="desc">Used to generate the payment QR on customer site</div></div>
+      <input type="text" id="upiId" style="width:220px;" placeholder="yourname@bank">
+    </div>
+    <button class="save-btn" id="saveUpi">Save UPI ID</button>
+    <div class="saved-msg" id="savedUpiMsg"></div>
+  </div>
+</div>
+
+<script>
+const API = '';
+
+// ---------- NAV ----------
+document.getElementById('navQueue').addEventListener('click', () => switchView('queue'));
+document.getElementById('navRates').addEventListener('click', () => switchView('rates'));
+function switchView(v) {
+  document.getElementById('queueView').style.display = v === 'queue' ? 'block' : 'none';
+  document.getElementById('ratesView').style.display = v === 'rates' ? 'block' : 'none';
+  document.getElementById('navQueue').classList.toggle('active', v === 'queue');
+  document.getElementById('navRates').classList.toggle('active', v === 'rates');
+  if (v === 'rates') loadRates();
+}
+
+// ---------- ORDER QUEUE ----------
+async function loadOrders() {
+  try {
+    const res = await fetch(API + '/api/orders');
+    const data = await res.json();
+    render(data.orders);
+  } catch (e) {}
+}
+
+function fileIcon(fileName) {
+  return fileName && fileName.toLowerCase().endsWith('.pdf') ? '📄' : '🖼️';
+}
+
+function render(orders) {
+  const list = document.getElementById('orderList');
+  if (!orders.length) {
+    list.innerHTML = '<div class="empty">No orders yet. New paid orders will appear here automatically.</div>';
+    return;
+  }
+  list.innerHTML = orders.map(o => `
+    <div class="order">
+      <div class="thumb">${fileIcon(o.fileName)}</div>
+      <div class="info">
+        <div class="id">#${o.id}</div>
+        <div class="tag">${
+          o.options.jobType === 'id_card' ? '🪪 ID Card' :
+          o.options.jobType === 'pvc_card' ? '💳 PVC Card (' + (o.options.cardType === 'retailer' ? 'Retailer' : 'Customer') + ')' :
+          o.options.jobType === 'other' ? '📁 ' + (o.originalName || 'File') :
+          '📄 Document'
+        }</div>
+        ${o.options.jobType === 'pvc_card' && o.options.cardType === 'retailer' && o.options.retailerName ? `<div class="tag" style="color:var(--accent);border-color:var(--accent);">🏬 ${o.options.retailerName}</div>` : ''}
+        <div class="tag">${o.options.colorMode === 'color' ? 'Color' : 'B&W'}</div>
+        <div class="tag">${o.options.copies} copies</div>
+        ${o.options.pageCount ? `<div class="tag">${o.options.pageCount} pages</div>` : ''}
+        <div class="tag paid">${o.status === 'printed' ? '' : '💰 Paid ₹'+o.amount}</div>
+        ${o.status === 'printed' ? '<div class="tag printed">✓ Printed</div>' : ''}
+      </div>
+      <div class="actions">
+        <button class="print" onclick="openPrint('${o.fileName}')">Open & Print</button>
+        ${o.status !== 'printed' ? `<button class="done" onclick="markPrinted('${o.id}')">Mark Printed</button>` : ''}
+      </div>
+    </div>
+  `).join('');
+}
+
+function openPrint(fileName) {
+  window.open('/uploads/' + fileName, '_blank');
+}
+
+async function markPrinted(id) {
+  await fetch(API + `/api/orders/${id}/printed`, { method: 'POST' });
+  loadOrders();
+}
+
+loadOrders();
+setInterval(loadOrders, 4000);
+
+// ---------- RATES ----------
+async function loadRates() {
+  const res = await fetch(API + '/api/rates');
+  const data = await res.json();
+  document.getElementById('rate_bw').value = data.rates.bw_a4;
+  document.getElementById('rate_color').value = data.rates.color_a4;
+  document.getElementById('rate_id_bw').value = data.rates.id_card_bw;
+  document.getElementById('rate_id_color').value = data.rates.id_card_color;
+  document.getElementById('rate_pvc_retailer').value = data.rates.pvc_retailer;
+  document.getElementById('rate_pvc_customer').value = data.rates.pvc_customer;
+  document.getElementById('rate_additional_flat').value = data.rates.additionalChargeFlat || 0;
+  document.getElementById('rate_additional_percent').value = data.rates.additionalChargePercent || 0;
+  document.getElementById('upiId').value = data.rates.upiId || '';
+}
+
+document.getElementById('saveUpi').addEventListener('click', async () => {
+  await fetch(API + '/api/rates', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ upiId: document.getElementById('upiId').value.trim() })
+  });
+  const msg = document.getElementById('savedUpiMsg');
+  msg.textContent = '✓ UPI ID saved';
+  setTimeout(() => msg.textContent = '', 2000);
+});
+
+document.getElementById('saveRates').addEventListener('click', async () => {
+  const rates = {
+    bw_a4: parseFloat(document.getElementById('rate_bw').value) || 0,
+    color_a4: parseFloat(document.getElementById('rate_color').value) || 0,
+    id_card_bw: parseFloat(document.getElementById('rate_id_bw').value) || 0,
+    id_card_color: parseFloat(document.getElementById('rate_id_color').value) || 0,
+    pvc_retailer: parseFloat(document.getElementById('rate_pvc_retailer').value) || 0,
+    pvc_customer: parseFloat(document.getElementById('rate_pvc_customer').value) || 0
+  };
+  await fetch(API + '/api/rates', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(rates)
+  });
+  const msg = document.getElementById('savedMsg');
+  msg.textContent = '✓ Rates saved';
+  setTimeout(() => msg.textContent = '', 2000);
+});
+
+document.getElementById('saveAdditional').addEventListener('click', async () => {
+  const rates = {
+    additionalChargeFlat: parseFloat(document.getElementById('rate_additional_flat').value) || 0,
+    additionalChargePercent: parseFloat(document.getElementById('rate_additional_percent').value) || 0
+  };
+  await fetch(API + '/api/rates', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(rates)
+  });
+  const msg = document.getElementById('savedAdditionalMsg');
+  msg.textContent = '✓ Additional charges saved';
+  setTimeout(() => msg.textContent = '', 2000);
+});
+</script>
+</body>
+</html>

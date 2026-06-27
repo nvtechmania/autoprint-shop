@@ -1,0 +1,1160 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>NV Shop QuickPrint — Upload & Print</title>
+<script src="https://checkout.razorpay.com/v1/checkout.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="perspective.js"></script>
+<style>
+  :root{
+    --bg:#0f1115; --panel:#171a21; --accent:#5b8def; --accent2:#43c08a;
+    --text:#eef1f6; --muted:#8a90a0; --danger:#e25c5c; --border:#262b36; --warn:#e0a93c;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:'Segoe UI',Arial,sans-serif;background:var(--bg);color:var(--text);padding-top: env(safe-area-inset-top);}
+  header{padding:18px 20px;border-bottom:1px solid var(--border);}
+  header h1{font-size:18px;margin:0;font-weight:600;}
+  header span{color:var(--accent2);}
+  .wrap{max-width:560px;margin:0 auto;padding:18px;}
+  .card{background:var(--panel);border:1px solid var(--border);border-radius:14px;padding:18px;margin-bottom:16px;}
+  .tabs{display:flex;gap:8px;margin-bottom:16px;}
+  .tab{flex:1;text-align:center;padding:10px;border-radius:10px;background:var(--panel);border:1px solid var(--border);cursor:pointer;font-size:14px;color:var(--muted);}
+  .tab.active{background:var(--accent);color:#fff;border-color:var(--accent);}
+  label{display:block;font-size:13px;color:var(--muted);margin-bottom:6px;margin-top:14px;}
+  select, input[type=number]{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:#11141b;color:var(--text);font-size:14px;}
+  .row{display:flex;gap:10px;}
+  .row > div{flex:1;}
+  .dropzone{border:2px dashed var(--border);border-radius:12px;padding:24px;text-align:center;color:var(--muted);cursor:pointer;transition:.2s;}
+  .dropzone:hover{border-color:var(--accent);color:var(--text);}
+  .dropzone.small{padding:14px;font-size:13px;}
+  .dropzone.done{border-color:var(--accent2);color:var(--accent2);}
+  .slider-row{margin-top:10px;}
+  .slider-row input[type=range]{width:100%;}
+  button.primary{width:100%;padding:14px;border-radius:10px;border:none;background:var(--accent);color:#fff;font-size:15px;font-weight:600;cursor:pointer;margin-top:18px;}
+  button.primary:disabled{opacity:.4;cursor:not-allowed;}
+  button.secondary{width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:transparent;color:var(--muted);font-size:13px;cursor:pointer;margin-top:8px;}
+  .price{font-size:22px;font-weight:700;color:var(--accent2);text-align:center;margin-top:10px;}
+  .order-box{text-align:center;}
+  .order-id{font-size:28px;font-weight:700;letter-spacing:2px;color:var(--accent);margin:14px 0;}
+  .status{font-size:13px;color:var(--muted);margin-top:6px;}
+  .hidden{display:none !important;}
+  .crop-controls{display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;}
+  .crop-controls button{flex:1;padding:8px;border-radius:8px;border:1px solid var(--border);background:#11141b;color:var(--text);font-size:12px;cursor:pointer;min-width:80px;}
+  .note{font-size:12px;color:var(--muted);margin-top:8px;}
+  .step-title{font-size:14px;font-weight:600;margin-bottom:10px;}
+  .editor-wrap{position:relative;display:inline-block;max-width:100%;touch-action:none;}
+  .editor-wrap img, .editor-wrap canvas{max-width:100%;display:block;border-radius:6px;}
+  svg.overlay{position:absolute;top:0;left:0;width:100%;height:100%;}
+  .handle{fill:var(--accent);stroke:#fff;stroke-width:2;cursor:grab;}
+  .quad-line{fill:rgba(91,141,239,0.18);stroke:var(--accent);stroke-width:2;}
+  .pages-list{display:flex;gap:10px;flex-wrap:wrap;margin-top:12px;}
+  .page-thumb{position:relative;width:70px;height:99px;border:1px solid var(--border);border-radius:6px;overflow:hidden;background:#fff;}
+  .page-thumb img{width:100%;height:100%;object-fit:contain;}
+  .page-thumb .rm{position:absolute;top:2px;right:2px;background:var(--danger);color:#fff;border:none;border-radius:50%;width:18px;height:18px;font-size:11px;cursor:pointer;line-height:1;}
+  .page-canvas-wrap{position:relative;width:280px;height:396px;margin:0 auto;border:1px solid var(--border);background:#fff;overflow:hidden;border-radius:6px;}
+  #pageImg{position:absolute;cursor:grab;}
+  .id-slot-thumb{width:60px;height:40px;border-radius:6px;object-fit:cover;border:1px solid var(--border);}
+  .id-slot-row{display:flex;align-items:center;gap:10px;}
+</style>
+</head>
+<body>
+
+<header><h1>📠 NV Shop <span>QuickPrint</span></h1></header>
+
+<div class="wrap">
+
+  <div class="card" id="step-type">
+    <div class="tabs">
+      <div class="tab active" data-type="document">📄 Document</div>
+      <div class="tab" data-type="id_card">🪪 ID Card</div>
+      <div class="tab" data-type="pvc_card">💳 PVC Card</div>
+      <div class="tab" data-type="other">📁 Other File</div>
+    </div>
+    <div class="note" id="type-note">Upload pages one at a time — crop, straighten, and place each on an A4 page.</div>
+  </div>
+
+  <!-- SHARED PER-IMAGE EDITOR (used by both Document pages and ID front/back) -->
+  <div class="card" id="editor-card">
+
+    <div id="sub-upload">
+      <div class="step-title" id="uploadTitle">Step 1 · Upload a page</div>
+      <div class="dropzone" id="dropzone">Tap to choose a photo or scan (JPG/PNG)</div>
+      <input type="file" id="fileInput" accept="image/*" class="hidden">
+      <div class="note" id="uploadFormatNote"></div>
+    </div>
+
+    <div id="sub-corners" class="hidden">
+      <div class="step-title">Drag corners to match the edges</div>
+      <div class="editor-wrap" id="cornerWrap">
+        <canvas id="rawCanvas"></canvas>
+        <svg class="overlay" id="overlaySvg"></svg>
+      </div>
+      <div class="crop-controls">
+        <button id="resetQuadBtn">Reset Corners</button>
+        <button id="applyCropBtn">Apply Crop →</button>
+      </div>
+    </div>
+
+    <div id="sub-adjust" class="hidden">
+      <div class="step-title">Straighten & adjust</div>
+      <div class="editor-wrap" id="adjustWrap">
+        <canvas id="adjustCanvas"></canvas>
+      </div>
+      <div class="crop-controls">
+        <button id="rotateBtn">⟲ Rotate 90°</button>
+        <button id="backToCornersBtn">← Back</button>
+      </div>
+      <div class="slider-row"><label>Brightness</label><input type="range" id="brightness" min="-100" max="100" value="0"></div>
+      <div class="slider-row"><label>Contrast</label><input type="range" id="contrast" min="-100" max="100" value="0"></div>
+      <button class="primary" id="adjustNextBtn">Continue →</button>
+    </div>
+
+    <div id="sub-position" class="hidden">
+      <div class="step-title">Position on the page</div>
+      <div class="note">Drag to move, use slider to resize.</div>
+      <div class="page-canvas-wrap" id="pageCanvasWrap">
+        <img id="pageImg" src="">
+      </div>
+      <div class="slider-row"><label>Size</label><input type="range" id="zoomSlider" min="30" max="200" value="90"></div>
+      <button class="primary" id="addPageBtn">✓ Add This Page</button>
+      <button class="secondary" id="backToAdjustBtn">← Back to adjust</button>
+    </div>
+
+  </div>
+
+  <!-- OTHER FILE TYPES: PDF / DOC / XLS / PPT / HTML — uploaded as-is -->
+  <div class="card hidden" id="other-file-card">
+    <div class="step-title">Upload your file</div>
+    <div class="dropzone" id="otherDropzone">Tap to choose a file (PDF, Word, Excel, PowerPoint, HTML, etc.)</div>
+    <input type="file" id="otherFileInput" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.html,.htm,.txt,.csv,image/*" class="hidden">
+    <div class="note" id="otherFileName"></div>
+
+    <!-- Shown only for non-PDF files we can't read (doc/xls/ppt/etc) -->
+    <div id="otherManualPageWrap" class="hidden">
+      <label>Number of pages</label>
+      <input type="number" id="otherPageCount" min="1" value="1">
+      <div class="note">We can't auto-detect page count for this file type — please enter it so pricing is accurate. The shop will open and print your file as submitted.</div>
+    </div>
+
+    <!-- Shown only for PDF files — auto-detected page count + page picker -->
+    <div id="otherPdfWrap" class="hidden">
+      <div class="note" id="otherPdfPageInfo"></div>
+      <label>Which pages to print?</label>
+      <input type="text" id="otherPdfPageRange" placeholder="e.g. 1,3,5-8 — leave blank for all pages">
+      <div class="note">Separate page numbers with commas, use a dash for ranges. Leave blank to print all pages.</div>
+      <div id="otherPdfPreview" class="pdf-pages-preview"></div>
+    </div>
+  </div>
+
+  <!-- DOCUMENT: pages list -->
+  <!-- PDF page picker for Document tab (when an uploaded page file is a multi-page PDF) -->
+  <div class="card hidden" id="docPdfPickerCard">
+    <div class="step-title">This PDF has multiple pages</div>
+    <div class="note" id="docPdfPageInfo"></div>
+    <label>Which pages do you want to add?</label>
+    <input type="text" id="docPdfPageRange" placeholder="e.g. 1,3,5-8 — leave blank for all pages">
+    <div id="docPdfPreview" class="pdf-pages-preview"></div>
+    <button class="primary" id="docPdfConfirmBtn">Use Selected Pages →</button>
+  </div>
+
+  <!-- PDF page picker for PVC Card front/back (single page selection) -->
+  <div class="card hidden" id="cardPdfPickerCard">
+    <div class="step-title">This PDF has multiple pages</div>
+    <div class="note" id="cardPdfPageInfo"></div>
+    <label>Which page is this card side?</label>
+    <input type="number" id="cardPdfPageNum" min="1" value="1">
+    <div id="cardPdfPreview" class="pdf-pages-preview"></div>
+    <button class="primary" id="cardPdfConfirmBtn">Use This Page →</button>
+  </div>
+  <div class="card hidden" id="pagesListWrap">
+    <div class="step-title">Pages added (<span id="pageCount">0</span>)</div>
+    <div class="pages-list" id="pagesList"></div>
+    <button class="secondary" id="addAnotherPageBtn">+ Add Another Page</button>
+  </div>
+
+  <!-- TWO-SIDED CARD FLOW (shared by ID Card and PVC Card): current card in progress -->
+  <div class="card hidden" id="card-current-card">
+    <div class="step-title" id="cardCurrentTitle">Current card</div>
+    <div class="id-slot-row">
+      <img id="cardFrontThumb" class="id-slot-thumb hidden">
+      <button class="secondary" id="addCardFrontBtn" style="margin:0;">Front side</button>
+      <img id="cardBackThumb" class="id-slot-thumb hidden">
+      <button class="secondary" id="addCardBackBtn" style="margin:0;">Back side</button>
+    </div>
+    <button class="primary" id="addCardBtn" disabled>✓ Add This Card</button>
+  </div>
+
+  <!-- TWO-SIDED CARD FLOW: completed cards list -->
+  <div class="card hidden" id="cardPagesListWrap">
+    <div class="step-title">Cards added (<span id="cardPageCount">0</span>)</div>
+    <div class="pages-list" id="cardPagesList"></div>
+    <button class="secondary" id="addAnotherCardBtn">+ Add Another Card</button>
+  </div>
+
+  <!-- OPTIONS -->
+  <div class="card" id="options-card">
+    <div class="row">
+      <div id="colorModeWrap">
+        <label>Color mode</label>
+        <select id="colorMode">
+          <option value="bw">Black & White</option>
+          <option value="color">Color</option>
+        </select>
+      </div>
+      <div id="cardTypeWrap" class="hidden">
+        <label>Order type</label>
+        <select id="cardType">
+          <option value="customer">Customer</option>
+          <option value="retailer">Retailer</option>
+        </select>
+      </div>
+      <div id="retailerNameWrap" class="hidden">
+        <label>Retailer name</label>
+        <select id="retailerName">
+          <option value="Abinash Talukdar">Abinash Talukdar</option>
+          <option value="Jwngsar Baro">Jwngsar Baro</option>
+          <option value="Ramen Das">Ramen Das</option>
+          <option value="Sanjay Baro">Sanjay Baro</option>
+        </select>
+      </div>
+      <div>
+        <label>Copies</label>
+        <input type="number" id="copies" min="1" value="1">
+      </div>
+    </div>
+    <div class="price" id="priceDisplay">₹0</div>
+  </div>
+
+  <button class="primary" id="proceedBtn" disabled>Proceed to Pay</button>
+
+  <!-- PAYMENT -->
+  <div class="card hidden order-box" id="payCard">
+    <div>Order Total</div>
+    <div class="price" id="payAmount">₹0</div>
+    <div id="upiQrWrap" style="display:flex;justify-content:center;margin:14px 0;"></div>
+    <div class="note" id="upiNote">Scan with any UPI app (GPay, PhonePe, Paytm) and pay, then tap below.</div>
+    <button class="primary" id="confirmPayBtn">I've Paid — Confirm</button>
+  </div>
+
+  <!-- DONE -->
+  <div class="card hidden order-box" id="doneCard">
+    <div>✅ Order placed!</div>
+    <div class="order-id" id="orderIdDisplay">—</div>
+    <div class="status">Show this number at the counter.</div>
+    <button class="secondary" id="newOrderBtn">Place another order</button>
+  </div>
+
+</div>
+
+<!-- PDF password prompt -->
+<div class="hidden" id="pdfPasswordModal" style="position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:999;display:flex;align-items:center;justify-content:center;padding:20px;">
+  <div class="card" style="max-width:320px;width:100%;margin:0;">
+    <div class="step-title">🔒 This PDF is password protected</div>
+    <input type="password" id="pdfPasswordInput" placeholder="Enter password" style="width:100%;padding:10px;border-radius:8px;border:1px solid var(--border);background:#11141b;color:var(--text);font-size:14px;">
+    <div class="note" id="pdfPasswordError" style="color:var(--danger);min-height:16px;"></div>
+    <button class="primary" id="pdfPasswordSubmit">Unlock</button>
+    <button class="secondary" id="pdfPasswordCancel">Cancel</button>
+  </div>
+</div>
+
+<style>
+  .pdf-loading{display:flex;flex-direction:column;align-items:center;gap:10px;padding:30px;color:var(--muted);font-size:13px;}
+  .pdf-spinner{width:28px;height:28px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:pdfspin 0.8s linear infinite;}
+  @keyframes pdfspin{to{transform:rotate(360deg);}}
+  .pdf-pages-preview{display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;}
+  .pdf-page-thumb{text-align:center;}
+  .pdf-page-thumb canvas{border:1px solid var(--border);border-radius:4px;background:#fff;max-width:140px;}
+  .pdf-page-thumb .pg-label{font-size:11px;color:var(--muted);margin-top:4px;}
+</style>
+
+<script>
+const API = '';
+let jobType = 'document';
+let currentOrder = null;
+let rates = { bw_a4: 2, color_a4: 10, id_card_bw: 10, id_card_color: 20, pvc_retailer: 50, pvc_customer: 100, additionalChargeFlat: 0, additionalChargePercent: 0, upiId: '' };
+let serverConfig = { razorpayEnabled: false, razorpayKeyId: null };
+
+fetch(API + '/api/config').then(r => r.json()).then(d => { serverConfig = d; }).catch(()=>{});
+
+fetch(API + '/api/rates').then(r => r.json()).then(d => { rates = d.rates; updatePrice(); }).catch(()=>{});
+
+const A4_W = 1240, A4_H = 1754;
+const PV_W = 280, PV_H = 396;
+
+let pages = [];      // document mode: array of { fullCanvas } (A4 canvases)
+
+// Two-sided card state, keyed by kind ('id_card' | 'pvc_card')
+const cardStates = {
+  id_card: { current: { frontCanvas: null, backCanvas: null }, pages: [] },
+  pvc_card: { current: { frontCanvas: null, backCanvas: null }, pages: [] }
+};
+const TWO_SIDED_KINDS = ['id_card', 'pvc_card'];
+
+// editTarget: 'document' | 'card_front' | 'card_back'
+let editTarget = 'document';
+
+// ---------- TAB SWITCH ----------
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    jobType = tab.dataset.type;
+    refreshModeUI();
+    updatePrice(); checkReady();
+  });
+});
+
+function refreshModeUI() {
+  const isDoc = jobType === 'document';
+  const isOther = jobType === 'other';
+  const isTwoSided = TWO_SIDED_KINDS.includes(jobType);
+  const isPvc = jobType === 'pvc_card';
+
+  document.getElementById('colorModeWrap').classList.toggle('hidden', isPvc);
+  document.getElementById('cardTypeWrap').classList.toggle('hidden', !isPvc);
+  document.getElementById('retailerNameWrap').classList.toggle('hidden', !isPvc || document.getElementById('cardType').value !== 'retailer');
+
+  document.getElementById('other-file-card').classList.toggle('hidden', !isOther);
+  document.getElementById('pagesListWrap').classList.toggle('hidden', !isDoc || pages.length === 0);
+  document.getElementById('card-current-card').classList.toggle('hidden', !isTwoSided);
+  document.getElementById('cardPagesListWrap').classList.toggle('hidden', !isTwoSided || (isTwoSided && cardStates[jobType].pages.length === 0));
+
+  if (isDoc) {
+    editTarget = 'document';
+    document.getElementById('uploadTitle').textContent = 'Step 1 · Upload a page';
+    document.getElementById('dropzone').textContent = 'Tap to choose a photo or scan (JPG/PNG)';
+    document.getElementById('uploadFormatNote').textContent = '';
+    document.getElementById('editor-card').classList.remove('hidden');
+    showSub('upload');
+  } else if (isOther) {
+    document.getElementById('editor-card').classList.add('hidden');
+  } else if (isTwoSided) {
+    document.getElementById('cardCurrentTitle').textContent = isPvc ? 'Current PVC card' : 'Current ID card';
+    document.getElementById('addCardBtn').textContent = isPvc ? '✓ Add This PVC Card' : '✓ Add This ID Card';
+    document.getElementById('addAnotherCardBtn').textContent = isPvc ? '+ Add Another PVC Card' : '+ Add Another ID Card';
+    refreshCardThumbs();
+    const st = cardStates[jobType];
+    if (!st.current.frontCanvas) startCardEdit('card_front');
+    else if (!st.current.backCanvas && !isPvc) startCardEdit('card_back');
+    else { document.getElementById('editor-card').classList.add('hidden'); showSub('upload'); }
+  }
+  applyPreviewMode();
+  checkReady();
+}
+
+function refreshCardThumbs() {
+  const st = cardStates[jobType];
+  const frontThumb = document.getElementById('cardFrontThumb');
+  const backThumb = document.getElementById('cardBackThumb');
+  if (st.current.frontCanvas) { frontThumb.src = st.current.frontCanvas.toDataURL('image/jpeg',0.8); frontThumb.classList.remove('hidden'); }
+  else frontThumb.classList.add('hidden');
+  if (st.current.backCanvas) { backThumb.src = st.current.backCanvas.toDataURL('image/jpeg',0.8); backThumb.classList.remove('hidden'); }
+  else backThumb.classList.add('hidden');
+  document.getElementById('addCardFrontBtn').textContent = st.current.frontCanvas ? '✓ Front (change)' : 'Front side';
+  document.getElementById('addCardBackBtn').textContent = st.current.backCanvas ? '✓ Back (change)' : 'Back side (optional)';
+  const backRequired = jobType !== 'pvc_card';
+  document.getElementById('addCardBtn').disabled = !(st.current.frontCanvas && (st.current.backCanvas || !backRequired));
+}
+
+function startCardEdit(target) {
+  editTarget = target;
+  document.getElementById('editor-card').classList.remove('hidden');
+  document.getElementById('uploadTitle').textContent = target === 'card_front' ? 'Upload front side' : 'Upload back side';
+  const note = document.getElementById('uploadFormatNote');
+  if (jobType === 'pvc_card') {
+    document.getElementById('dropzone').textContent = 'Tap to choose a file (JPG, PNG, or PDF)';
+    note.textContent = 'PVC card design is used as-is, full size — no cropping. Word/Excel/PowerPoint files aren\'t supported here; please convert to PDF or image first.';
+  } else {
+    document.getElementById('dropzone').textContent = 'Tap to choose a photo or scan (JPG/PNG)';
+    note.textContent = '';
+  }
+  showSub('upload');
+}
+
+document.getElementById('addCardFrontBtn').addEventListener('click', () => startCardEdit('card_front'));
+document.getElementById('addCardBackBtn').addEventListener('click', () => startCardEdit('card_back'));
+
+// ============ OTHER FILE TYPES (pdf/doc/xls/ppt/html/etc, uploaded as-is) ============
+let otherFile = null;
+let otherFilePdf = null;       // pdf.js document, set only when uploaded file is a PDF
+let otherFilePdfPages = 0;
+let otherFileIsPdf = false;
+
+document.getElementById('otherDropzone').addEventListener('click', () => document.getElementById('otherFileInput').click());
+document.getElementById('otherFileInput').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  otherFile = file;
+  otherFilePdf = null;
+  otherFileIsPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+  document.getElementById('otherFileName').textContent = '✓ Selected: ' + file.name;
+
+  if (otherFileIsPdf) {
+    document.getElementById('otherManualPageWrap').classList.add('hidden');
+    document.getElementById('otherPdfWrap').classList.remove('hidden');
+    document.getElementById('otherPdfPreview').innerHTML = '<div class="pdf-loading"><div class="pdf-spinner"></div><div>Loading preview…</div></div>';
+
+    const pdf = await loadPdfSmart(file);
+    if (!pdf) { // password cancelled
+      otherFile = null; otherFileIsPdf = false;
+      document.getElementById('otherFileName').textContent = '';
+      document.getElementById('otherPdfWrap').classList.add('hidden');
+      checkReady();
+      return;
+    }
+    otherFilePdf = pdf;
+    otherFilePdfPages = pdf.numPages;
+    document.getElementById('otherPdfPageInfo').textContent = `This PDF has ${otherFilePdfPages} page${otherFilePdfPages > 1 ? 's' : ''}.`;
+    document.getElementById('otherPdfPageRange').value = '';
+    const pages = parsePageNumbers('', otherFilePdfPages);
+    await renderPdfPagesPreview(pdf, pages, document.getElementById('otherPdfPreview'));
+    updatePrice();
+  } else {
+    document.getElementById('otherPdfWrap').classList.add('hidden');
+    document.getElementById('otherManualPageWrap').classList.remove('hidden');
+  }
+  checkReady();
+});
+
+let otherPdfDebounce = null;
+document.getElementById('otherPdfPageRange').addEventListener('input', () => {
+  clearTimeout(otherPdfDebounce);
+  otherPdfDebounce = setTimeout(async () => {
+    if (!otherFilePdf) return;
+    const pages = parsePageNumbers(document.getElementById('otherPdfPageRange').value, otherFilePdfPages);
+    await renderPdfPagesPreview(otherFilePdf, pages, document.getElementById('otherPdfPreview'));
+    updatePrice();
+  }, 400);
+});
+
+document.getElementById('otherPageCount').addEventListener('input', updatePrice);
+
+function getOtherPdfSelectedPages() {
+  if (!otherFilePdf) return [];
+  return parsePageNumbers(document.getElementById('otherPdfPageRange').value, otherFilePdfPages);
+}
+
+async function buildPdfFromPdfPages(pdf, pageNumbers) {
+  const { jsPDF } = window.jspdf;
+  const outPdf = new jsPDF('p', 'pt', 'a4');
+  const pw = outPdf.internal.pageSize.getWidth(), ph = outPdf.internal.pageSize.getHeight();
+  for (let i = 0; i < pageNumbers.length; i++) {
+    if (i > 0) outPdf.addPage();
+    const canvas = await renderPdfPageToCanvas(pdf, pageNumbers[i], 1000);
+    outPdf.addImage(canvas.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, pw, ph);
+  }
+  return outPdf.output('blob');
+}
+
+
+// ============ B&W PREVIEW MODE ============
+function applyPreviewMode() {
+  const isBw = document.getElementById('colorMode').value === 'bw';
+  const filter = isBw ? 'grayscale(100%)' : 'none';
+  ['adjustCanvas','pageImg'].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.style.filter = filter;
+  });
+  document.querySelectorAll('.page-thumb img').forEach(img => img.style.filter = filter);
+  document.querySelectorAll('.pdf-preview-canvas').forEach(c => c.style.filter = filter);
+}
+
+// ============ SHARED EDITOR ============
+let rawImg = null;
+let quad = [];
+let croppedCanvas = null;
+let rotation = 0;
+let brightnessVal = 0, contrastVal = 0;
+let posScale = 0.9, posOffsetX = 0, posOffsetY = 0;
+
+function showSub(name) {
+  ['upload','corners','adjust','position'].forEach(s => {
+    document.getElementById('sub-' + s).classList.toggle('hidden', s !== name);
+  });
+}
+
+document.getElementById('dropzone').addEventListener('click', () => {
+  // PVC cards and Document pages both accept PDF (rendered to image); ID card stays image-only
+  document.getElementById('fileInput').accept = (jobType === 'pvc_card' || jobType === 'document') ? 'image/*,.pdf,application/pdf' : 'image/*';
+  document.getElementById('fileInput').click();
+});
+
+// ============ SHARED PDF HELPERS (password handling, page rendering, page-range parsing) ============
+pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+
+function askPdfPassword(isRetry) {
+  return new Promise(resolve => {
+    const modal = document.getElementById('pdfPasswordModal');
+    const input = document.getElementById('pdfPasswordInput');
+    const err = document.getElementById('pdfPasswordError');
+    err.textContent = isRetry ? 'Incorrect password — try again.' : '';
+    input.value = '';
+    modal.classList.remove('hidden');
+    input.focus();
+    const submitBtn = document.getElementById('pdfPasswordSubmit');
+    const cancelBtn = document.getElementById('pdfPasswordCancel');
+    function cleanup() {
+      modal.classList.add('hidden');
+      submitBtn.removeEventListener('click', onSubmit);
+      cancelBtn.removeEventListener('click', onCancel);
+    }
+    function onSubmit() { const v = input.value; cleanup(); resolve(v || null); }
+    function onCancel() { cleanup(); resolve(null); }
+    submitBtn.addEventListener('click', onSubmit);
+    cancelBtn.addEventListener('click', onCancel);
+  });
+}
+
+// Loads a PDF, transparently prompting for a password if it's locked.
+// Returns the pdf.js document object, or null if the user cancelled.
+async function loadPdfSmart(file) {
+  const buf = await file.arrayBuffer();
+  let password;
+  let isRetry = false;
+  while (true) {
+    try {
+      const params = { data: buf };
+      if (password !== undefined) params.password = password;
+      return await pdfjsLib.getDocument(params).promise;
+    } catch (err) {
+      if (err.name === 'PasswordException') {
+        password = await askPdfPassword(isRetry);
+        if (password === null) return null;
+        isRetry = true;
+        continue;
+      }
+      throw err;
+    }
+  }
+}
+
+async function renderPdfPageToCanvas(pdf, pageNum, targetWidth) {
+  const page = await pdf.getPage(pageNum);
+  const baseViewport = page.getViewport({ scale: 1 });
+  const scale = targetWidth ? targetWidth / baseViewport.width : 2;
+  const viewport = page.getViewport({ scale });
+  const canvas = document.createElement('canvas');
+  canvas.width = viewport.width; canvas.height = viewport.height;
+  await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+  return canvas;
+}
+
+// Parses strings like "1,3,5-8" into a sorted unique array of page numbers, clamped to maxPages.
+function parsePageNumbers(input, maxPages) {
+  if (!input || !input.trim()) return Array.from({ length: maxPages }, (_, i) => i + 1);
+  const result = new Set();
+  input.split(',').forEach(part => {
+    part = part.trim();
+    if (!part) return;
+    if (part.includes('-')) {
+      const [a, b] = part.split('-').map(s => parseInt(s.trim(), 10));
+      if (!isNaN(a) && !isNaN(b)) {
+        for (let i = Math.min(a, b); i <= Math.max(a, b); i++) if (i >= 1 && i <= maxPages) result.add(i);
+      }
+    } else {
+      const n = parseInt(part, 10);
+      if (!isNaN(n) && n >= 1 && n <= maxPages) result.add(n);
+    }
+  });
+  return Array.from(result).sort((a, b) => a - b);
+}
+
+// Renders a "Loading preview…" state, then the chosen pages as A4-styled thumbnails (in current B&W/color preview mode).
+async function renderPdfPagesPreview(pdf, pageNumbers, containerEl) {
+  containerEl.innerHTML = '<div class="pdf-loading"><div class="pdf-spinner"></div><div>Loading preview…</div></div>';
+  const rendered = [];
+  for (const pNum of pageNumbers) {
+    const canvas = await renderPdfPageToCanvas(pdf, pNum, 160);
+    rendered.push({ pNum, canvas });
+  }
+  containerEl.innerHTML = '';
+  rendered.forEach(r => {
+    const wrap = document.createElement('div');
+    wrap.className = 'pdf-page-thumb';
+    r.canvas.classList.add('pdf-preview-canvas');
+    wrap.appendChild(r.canvas);
+    const label = document.createElement('div');
+    label.className = 'pg-label';
+    label.textContent = 'Page ' + r.pNum;
+    wrap.appendChild(label);
+    containerEl.appendChild(wrap);
+  });
+  applyPreviewMode();
+}
+
+function loadImageFile(file) {
+  return new Promise(resolve => {
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+// Queue of {pdf, pageNum} used when a Document-tab PDF upload has multiple selected pages —
+// each gets processed through the normal crop/adjust/position flow one at a time.
+let docPdfQueue = [];
+
+async function useCanvasAsRawImage(canvas) {
+  rawImg = canvas;
+  const rawCanvas = document.getElementById('rawCanvas');
+  const maxW = 480;
+  const scale = Math.min(1, maxW / canvas.width);
+  rawCanvas.width = canvas.width; rawCanvas.height = canvas.height;
+  rawCanvas.style.width = (canvas.width * scale) + 'px';
+  rawCanvas.getContext('2d').drawImage(canvas, 0, 0);
+
+  if (jobType === 'pvc_card') {
+    const c = document.createElement('canvas');
+    c.width = canvas.width; c.height = canvas.height;
+    c.getContext('2d').drawImage(canvas, 0, 0);
+    croppedCanvas = c;
+    rotation = 0; brightnessVal = 0; contrastVal = 0;
+    document.getElementById('brightness').value = 0;
+    document.getElementById('contrast').value = 0;
+    drawAdjust();
+    showSub('adjust');
+  } else {
+    const inset = 0.08;
+    quad = [
+      { x: canvas.width*inset, y: canvas.height*inset },
+      { x: canvas.width*(1-inset), y: canvas.height*inset },
+      { x: canvas.width*(1-inset), y: canvas.height*(1-inset) },
+      { x: canvas.width*inset, y: canvas.height*(1-inset) }
+    ];
+    drawOverlay();
+    showSub('corners');
+  }
+}
+
+document.getElementById('fileInput').addEventListener('change', async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const isPdf = file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+
+  if (!isPdf) {
+    const img = await loadImageFile(file);
+    await useCanvasAsRawImage(img);
+    e.target.value = '';
+    return;
+  }
+
+  const pdf = await loadPdfSmart(file);
+  if (!pdf) { e.target.value = ''; return; } // user cancelled password prompt
+  const numPages = pdf.numPages;
+
+  if (numPages === 1) {
+    const canvas = await renderPdfPageToCanvas(pdf, 1, null);
+    await useCanvasAsRawImage(canvas);
+    e.target.value = '';
+    return;
+  }
+
+  // Multi-page PDF — show the appropriate picker for this tab
+  if (jobType === 'pvc_card') {
+    document.getElementById('editor-card').classList.add('hidden');
+    document.getElementById('cardPdfPickerCard').classList.remove('hidden');
+    document.getElementById('cardPdfPageInfo').textContent = `This PDF has ${numPages} pages.`;
+    document.getElementById('cardPdfPageNum').max = numPages;
+    document.getElementById('cardPdfPageNum').value = 1;
+    await renderPdfPagesPreview(pdf, [1], document.getElementById('cardPdfPreview'));
+    window._activeCardPdf = pdf;
+  } else {
+    document.getElementById('editor-card').classList.add('hidden');
+    document.getElementById('docPdfPickerCard').classList.remove('hidden');
+    document.getElementById('docPdfPageInfo').textContent = `This PDF has ${numPages} pages.`;
+    document.getElementById('docPdfPageRange').value = '';
+    await renderPdfPagesPreview(pdf, Array.from({length:numPages},(_,i)=>i+1), document.getElementById('docPdfPreview'));
+    window._activeDocPdf = pdf;
+    window._activeDocPdfPages = numPages;
+  }
+  e.target.value = '';
+});
+
+// PVC card: live preview update when page number changes
+document.getElementById('cardPdfPageNum').addEventListener('change', async () => {
+  const pdf = window._activeCardPdf;
+  if (!pdf) return;
+  const n = Math.max(1, Math.min(pdf.numPages, parseInt(document.getElementById('cardPdfPageNum').value || 1, 10)));
+  document.getElementById('cardPdfPageNum').value = n;
+  await renderPdfPagesPreview(pdf, [n], document.getElementById('cardPdfPreview'));
+});
+
+document.getElementById('cardPdfConfirmBtn').addEventListener('click', async () => {
+  const pdf = window._activeCardPdf;
+  const n = parseInt(document.getElementById('cardPdfPageNum').value || 1, 10);
+  const canvas = await renderPdfPageToCanvas(pdf, n, null);
+  document.getElementById('cardPdfPickerCard').classList.add('hidden');
+  await useCanvasAsRawImage(canvas);
+});
+
+// Document tab: live preview update as page-range text changes (debounced)
+let docPdfDebounce = null;
+document.getElementById('docPdfPageRange').addEventListener('input', () => {
+  clearTimeout(docPdfDebounce);
+  docPdfDebounce = setTimeout(async () => {
+    const pdf = window._activeDocPdf;
+    if (!pdf) return;
+    const pages = parsePageNumbers(document.getElementById('docPdfPageRange').value, window._activeDocPdfPages);
+    await renderPdfPagesPreview(pdf, pages, document.getElementById('docPdfPreview'));
+  }, 400);
+});
+
+document.getElementById('docPdfConfirmBtn').addEventListener('click', async () => {
+  const pdf = window._activeDocPdf;
+  const pages = parsePageNumbers(document.getElementById('docPdfPageRange').value, window._activeDocPdfPages);
+  document.getElementById('docPdfPickerCard').classList.add('hidden');
+  if (pages.length === 0) { showSub('upload'); document.getElementById('editor-card').classList.remove('hidden'); return; }
+  docPdfQueue = pages.slice(1).map(p => ({ pdf, pageNum: p }));
+  const firstCanvas = await renderPdfPageToCanvas(pdf, pages[0], null);
+  document.getElementById('editor-card').classList.remove('hidden');
+  await useCanvasAsRawImage(firstCanvas);
+});
+
+function drawOverlay() {
+  const svg = document.getElementById('overlaySvg');
+  const rawCanvas = document.getElementById('rawCanvas');
+  svg.setAttribute('viewBox', `0 0 ${rawCanvas.width} ${rawCanvas.height}`);
+  const pts = quad.map(p => `${p.x},${p.y}`).join(' ');
+  svg.innerHTML = `<polygon class="quad-line" points="${pts}"></polygon>` +
+    quad.map((p,i) => `<circle class="handle" data-i="${i}" cx="${p.x}" cy="${p.y}" r="${Math.max(8, rawCanvas.width*0.018)}"></circle>`).join('');
+  svg.querySelectorAll('.handle').forEach(circle => circle.addEventListener('pointerdown', startDrag));
+}
+
+function startDrag(e) {
+  e.preventDefault();
+  const i = +e.target.dataset.i;
+  const rawCanvas = document.getElementById('rawCanvas');
+  function move(ev) {
+    const rect = rawCanvas.getBoundingClientRect();
+    const scaleX = rawCanvas.width / rect.width, scaleY = rawCanvas.height / rect.height;
+    let x = (ev.clientX - rect.left) * scaleX, y = (ev.clientY - rect.top) * scaleY;
+    x = Math.max(0, Math.min(rawCanvas.width, x));
+    y = Math.max(0, Math.min(rawCanvas.height, y));
+    quad[i] = { x, y };
+    drawOverlay();
+  }
+  function up() { window.removeEventListener('pointermove', move); window.removeEventListener('pointerup', up); }
+  window.addEventListener('pointermove', move);
+  window.addEventListener('pointerup', up);
+}
+
+document.getElementById('resetQuadBtn').addEventListener('click', () => {
+  const inset = 0.08;
+  quad = [
+    { x: rawImg.width*inset, y: rawImg.height*inset },
+    { x: rawImg.width*(1-inset), y: rawImg.height*inset },
+    { x: rawImg.width*(1-inset), y: rawImg.height*(1-inset) },
+    { x: rawImg.width*inset, y: rawImg.height*(1-inset) }
+  ];
+  drawOverlay();
+});
+
+document.getElementById('applyCropBtn').addEventListener('click', () => {
+  const rawCanvas = document.getElementById('rawCanvas');
+  const wTop = Math.hypot(quad[1].x-quad[0].x, quad[1].y-quad[0].y);
+  const wBottom = Math.hypot(quad[2].x-quad[3].x, quad[2].y-quad[3].y);
+  const hLeft = Math.hypot(quad[3].x-quad[0].x, quad[3].y-quad[0].y);
+  const hRight = Math.hypot(quad[2].x-quad[1].x, quad[2].y-quad[1].y);
+  const outW = Math.round(Math.max(wTop, wBottom));
+  const outH = Math.round(Math.max(hLeft, hRight));
+  croppedCanvas = perspectiveCrop(rawCanvas, quad, Math.max(outW,100), Math.max(outH,100));
+  rotation = 0; brightnessVal = 0; contrastVal = 0;
+  document.getElementById('brightness').value = 0;
+  document.getElementById('contrast').value = 0;
+  drawAdjust();
+  showSub('adjust');
+});
+
+document.getElementById('backToCornersBtn').addEventListener('click', () => {
+  showSub(jobType === 'pvc_card' ? 'upload' : 'corners');
+});
+
+function drawAdjust() {
+  const cv = document.getElementById('adjustCanvas');
+  const src = croppedCanvas;
+  const rotated = rotation % 180 !== 0;
+  const w = src.width, h = src.height;
+  const maxW = 420;
+  const baseW = rotated ? h : w, baseH = rotated ? w : h;
+  const scale = Math.min(1, maxW / baseW);
+  cv.width = baseW; cv.height = baseH;
+  cv.style.width = (baseW*scale) + 'px';
+  const ctx = cv.getContext('2d');
+  ctx.save();
+  ctx.translate(cv.width/2, cv.height/2);
+  ctx.rotate(rotation * Math.PI/180);
+  ctx.filter = `brightness(${100+brightnessVal}%) contrast(${100+contrastVal}%)`;
+  ctx.drawImage(src, -w/2, -h/2, w, h);
+  ctx.restore();
+  applyPreviewMode();
+}
+document.getElementById('rotateBtn').addEventListener('click', () => { rotation = (rotation+90)%360; drawAdjust(); });
+document.getElementById('brightness').addEventListener('input', e => { brightnessVal = +e.target.value; drawAdjust(); });
+document.getElementById('contrast').addEventListener('input', e => { contrastVal = +e.target.value; drawAdjust(); });
+
+// bake current crop+rotation+brightness/contrast into a standalone canvas
+function bakeAdjustedCanvas() {
+  const src = croppedCanvas;
+  const rotated = rotation % 180 !== 0;
+  const w = src.width, h = src.height;
+  const out = document.createElement('canvas');
+  out.width = rotated ? h : w; out.height = rotated ? w : h;
+  const ctx = out.getContext('2d');
+  ctx.save();
+  ctx.translate(out.width/2, out.height/2);
+  ctx.rotate(rotation * Math.PI/180);
+  ctx.filter = `brightness(${100+brightnessVal}%) contrast(${100+contrastVal}%)`;
+  ctx.drawImage(src, -w/2, -h/2, w, h);
+  ctx.restore();
+  return out;
+}
+
+// ---- adjust step "Continue" routes based on editTarget ----
+document.getElementById('adjustNextBtn').addEventListener('click', () => {
+  if (editTarget === 'document') {
+    const adjustCanvas = document.getElementById('adjustCanvas');
+    const img = document.getElementById('pageImg');
+    img.src = adjustCanvas.toDataURL('image/png');
+    posScale = 0.9; posOffsetX = 0; posOffsetY = 0;
+    document.getElementById('zoomSlider').value = 90;
+    layoutPageImg();
+    showSub('position');
+  } else {
+    const baked = bakeAdjustedCanvas();
+    const st = cardStates[jobType];
+    if (editTarget === 'card_front') st.current.frontCanvas = baked;
+    else st.current.backCanvas = baked;
+    document.getElementById('editor-card').classList.add('hidden');
+    refreshCardThumbs();
+  }
+});
+document.getElementById('backToAdjustBtn').addEventListener('click', () => showSub('adjust'));
+
+function layoutPageImg() {
+  const img = document.getElementById('pageImg');
+  const natW = img.naturalWidth, natH = img.naturalHeight;
+  const fitScale = Math.min(PV_W/natW, PV_H/natH) * posScale;
+  const w = natW*fitScale, h = natH*fitScale;
+  img.style.width = w+'px'; img.style.height = h+'px';
+  img.style.left = ((PV_W-w)/2 + posOffsetX) + 'px';
+  img.style.top = ((PV_H-h)/2 + posOffsetY) + 'px';
+}
+document.getElementById('zoomSlider').addEventListener('input', e => { posScale = (+e.target.value)/100; layoutPageImg(); });
+
+(function setupDrag() {
+  const img = document.getElementById('pageImg');
+  let dragging = false, startX, startY, baseX, baseY;
+  img.addEventListener('pointerdown', e => {
+    dragging = true; startX = e.clientX; startY = e.clientY; baseX = posOffsetX; baseY = posOffsetY;
+    img.setPointerCapture(e.pointerId);
+  });
+  img.addEventListener('pointermove', e => {
+    if (!dragging) return;
+    posOffsetX = baseX + (e.clientX - startX);
+    posOffsetY = baseY + (e.clientY - startY);
+    layoutPageImg();
+  });
+  img.addEventListener('pointerup', () => dragging = false);
+})();
+
+document.getElementById('addPageBtn').addEventListener('click', async () => {
+  const img = document.getElementById('pageImg');
+  const full = document.createElement('canvas');
+  full.width = A4_W; full.height = A4_H;
+  const ctx = full.getContext('2d');
+  ctx.fillStyle = '#fff'; ctx.fillRect(0,0,A4_W,A4_H);
+  const ratio = A4_W / PV_W;
+  const rect = img.getBoundingClientRect();
+  const wrapRect = document.getElementById('pageCanvasWrap').getBoundingClientRect();
+  const left = (rect.left - wrapRect.left) * ratio, top = (rect.top - wrapRect.top) * ratio;
+  const w = rect.width * ratio, h = rect.height * ratio;
+  ctx.drawImage(img, left, top, w, h);
+  pages.push({ fullCanvas: full });
+  renderPagesList();
+  rawImg = null; croppedCanvas = null; rotation = 0; brightnessVal = 0; contrastVal = 0;
+
+  // If this page came from a multi-page PDF selection, automatically move to the next queued page
+  if (docPdfQueue.length > 0) {
+    const next = docPdfQueue.shift();
+    const canvas = await renderPdfPageToCanvas(next.pdf, next.pageNum, null);
+    await useCanvasAsRawImage(canvas);
+  } else {
+    showSub('upload');
+  }
+});
+
+document.getElementById('addAnotherPageBtn').addEventListener('click', () => showSub('upload'));
+
+function renderPagesList() {
+  const wrap = document.getElementById('pagesListWrap');
+  const list = document.getElementById('pagesList');
+  document.getElementById('pageCount').textContent = pages.length;
+  wrap.classList.toggle('hidden', pages.length === 0);
+  list.innerHTML = pages.map((p, i) => `
+    <div class="page-thumb"><img src="${p.fullCanvas.toDataURL('image/jpeg',0.7)}"><button class="rm" onclick="removePage(${i})">×</button></div>
+  `).join('');
+  checkReady(); updatePrice();
+}
+function removePage(i) { pages.splice(i,1); renderPagesList(); }
+
+// ============ TWO-SIDED CARDS: combine front+back into one A4 page ============
+document.getElementById('addCardBtn').addEventListener('click', () => {
+  const st = cardStates[jobType];
+  const full = document.createElement('canvas');
+  full.width = A4_W; full.height = A4_H;
+  const ctx = full.getContext('2d');
+  ctx.fillStyle = '#fff'; ctx.fillRect(0,0,A4_W,A4_H);
+
+  const front = st.current.frontCanvas, back = st.current.backCanvas;
+  const cardW = A4_W * 0.7;
+  const fH = front.height * (cardW/front.width);
+
+  if (back) {
+    const bH = back.height * (cardW/back.width);
+    const gap = 60;
+    const totalH = fH + bH + gap;
+    const startY = (A4_H - totalH) / 2;
+    const x = (A4_W - cardW) / 2;
+    ctx.drawImage(front, x, startY, cardW, fH);
+    ctx.strokeStyle = '#ccc'; ctx.strokeRect(x, startY, cardW, fH);
+    ctx.drawImage(back, x, startY+fH+gap, cardW, bH);
+    ctx.strokeRect(x, startY+fH+gap, cardW, bH);
+  } else {
+    // front only — center it alone on the page
+    const startY = (A4_H - fH) / 2;
+    const x = (A4_W - cardW) / 2;
+    ctx.drawImage(front, x, startY, cardW, fH);
+    ctx.strokeStyle = '#ccc'; ctx.strokeRect(x, startY, cardW, fH);
+  }
+
+  st.pages.push({ fullCanvas: full });
+  st.current = { frontCanvas: null, backCanvas: null };
+  refreshCardThumbs();
+  renderCardPagesList();
+  startCardEdit('card_front');
+});
+
+document.getElementById('addAnotherCardBtn').addEventListener('click', () => startCardEdit('card_front'));
+
+function renderCardPagesList() {
+  const st = cardStates[jobType];
+  const wrap = document.getElementById('cardPagesListWrap');
+  const list = document.getElementById('cardPagesList');
+  document.getElementById('cardPageCount').textContent = st.pages.length;
+  wrap.classList.toggle('hidden', st.pages.length === 0);
+  list.innerHTML = st.pages.map((p, i) => `
+    <div class="page-thumb"><img src="${p.fullCanvas.toDataURL('image/jpeg',0.7)}"><button class="rm" onclick="removeCardPage(${i})">×</button></div>
+  `).join('');
+  checkReady(); updatePrice();
+}
+function removeCardPage(i) { cardStates[jobType].pages.splice(i,1); renderCardPagesList(); }
+
+// ============ PRICE ============
+function applyAdditionalCharge(base) {
+  const flat = parseFloat(rates.additionalChargeFlat || 0);
+  const percent = parseFloat(rates.additionalChargePercent || 0);
+  return Math.round((base + flat + (base * percent / 100)) * 100) / 100;
+}
+
+function updatePrice() {
+  const copies = parseInt(document.getElementById('copies').value || 1, 10);
+  const colorMode = document.getElementById('colorMode').value;
+  let base;
+  if (jobType === 'id_card') {
+    const count = Math.max(cardStates.id_card.pages.length, 1);
+    const perCard = colorMode === 'color' ? rates.id_card_color : rates.id_card_bw;
+    base = perCard * count * copies;
+  } else if (jobType === 'pvc_card') {
+    const count = Math.max(cardStates.pvc_card.pages.length, 1);
+    const cardType = document.getElementById('cardType').value;
+    const perCard = cardType === 'retailer' ? rates.pvc_retailer : rates.pvc_customer;
+    base = perCard * count * copies;
+  } else if (jobType === 'other') {
+    const pageCount = otherFileIsPdf
+      ? Math.max(getOtherPdfSelectedPages().length, 1)
+      : Math.max(parseInt(document.getElementById('otherPageCount').value || 1, 10), 1);
+    const perPage = colorMode === 'color' ? rates.color_a4 : rates.bw_a4;
+    base = perPage * pageCount * copies;
+  } else {
+    const pageCount = Math.max(pages.length, 1);
+    const perPage = colorMode === 'color' ? rates.color_a4 : rates.bw_a4;
+    base = perPage * pageCount * copies;
+  }
+  const total = applyAdditionalCharge(base);
+  document.getElementById('priceDisplay').textContent = '₹' + total;
+  return total;
+}
+document.getElementById('colorMode').addEventListener('change', () => { updatePrice(); applyPreviewMode(); });
+document.getElementById('cardType').addEventListener('change', () => {
+  document.getElementById('retailerNameWrap').classList.toggle('hidden', document.getElementById('cardType').value !== 'retailer');
+  updatePrice();
+});
+document.getElementById('copies').addEventListener('input', updatePrice);
+
+function checkReady() {
+  let ready;
+  if (jobType === 'document') ready = pages.length > 0;
+  else if (TWO_SIDED_KINDS.includes(jobType)) ready = cardStates[jobType].pages.length > 0;
+  else ready = !!otherFile;
+  document.getElementById('proceedBtn').disabled = !ready;
+}
+
+// ============ BUILD PDF & SUBMIT ============
+function buildPdfFromPages(pageArr) {
+  const { jsPDF } = window.jspdf;
+  const pdf = new jsPDF('p', 'pt', 'a4');
+  const pw = pdf.internal.pageSize.getWidth(), ph = pdf.internal.pageSize.getHeight();
+  pageArr.forEach((p, i) => {
+    if (i > 0) pdf.addPage();
+    pdf.addImage(p.fullCanvas.toDataURL('image/jpeg', 0.9), 'JPEG', 0, 0, pw, ph);
+  });
+  return pdf.output('blob');
+}
+
+document.getElementById('proceedBtn').addEventListener('click', async () => {
+  const total = updatePrice();
+  document.getElementById('payAmount').textContent = '₹' + total;
+
+  const formData = new FormData();
+  let pageCount;
+
+  if (jobType === 'other') {
+    if (otherFileIsPdf) {
+      const selectedPages = getOtherPdfSelectedPages();
+      const blob = await buildPdfFromPdfPages(otherFilePdf, selectedPages);
+      formData.append('file', blob, otherFile.name.replace(/\.[^.]+$/, '') + '_print.pdf');
+      pageCount = Math.max(selectedPages.length, 1);
+    } else {
+      formData.append('file', otherFile, otherFile.name);
+      pageCount = Math.max(parseInt(document.getElementById('otherPageCount').value || 1, 10), 1);
+    }
+  } else if (TWO_SIDED_KINDS.includes(jobType)) {
+    const st = cardStates[jobType];
+    const blob = buildPdfFromPages(st.pages);
+    formData.append('file', blob, 'print.pdf');
+    pageCount = st.pages.length;
+  } else {
+    const blob = buildPdfFromPages(pages);
+    formData.append('file', blob, 'print.pdf');
+    pageCount = pages.length;
+  }
+
+  formData.append('options', JSON.stringify({
+    jobType,
+    colorMode: document.getElementById('colorMode').value,
+    cardType: jobType === 'pvc_card' ? document.getElementById('cardType').value : undefined,
+    retailerName: (jobType === 'pvc_card' && document.getElementById('cardType').value === 'retailer') ? document.getElementById('retailerName').value : undefined,
+    copies: document.getElementById('copies').value,
+    pageCount,
+    paperSize: 'A4'
+  }));
+
+  const res = await fetch(API + '/api/orders', { method: 'POST', body: formData });
+  const data = await res.json();
+  currentOrder = data.order;
+
+  document.getElementById('step-type').classList.add('hidden');
+  document.getElementById('editor-card').classList.add('hidden');
+  document.getElementById('other-file-card').classList.add('hidden');
+  document.getElementById('pagesListWrap').classList.add('hidden');
+  document.getElementById('card-current-card').classList.add('hidden');
+  document.getElementById('cardPagesListWrap').classList.add('hidden');
+  document.getElementById('options-card').classList.add('hidden');
+  document.getElementById('proceedBtn').classList.add('hidden');
+  document.getElementById('payCard').classList.remove('hidden');
+
+  if (serverConfig.razorpayEnabled) {
+    await startRazorpayCheckout(total);
+  } else {
+    showManualUpiQr(total);
+  }
+});
+
+function showManualUpiQr(total) {
+  document.getElementById('confirmPayBtn').classList.remove('hidden');
+  const qrWrap = document.getElementById('upiQrWrap');
+  qrWrap.innerHTML = '';
+  if (rates.upiId) {
+    const upiUrl = `upi://pay?pa=${encodeURIComponent(rates.upiId)}&pn=NvTechMania&am=${total}&cu=INR`;
+    new QRCode(qrWrap, { text: upiUrl, width: 180, height: 180, colorDark: '#000', colorLight: '#fff' });
+    document.getElementById('upiNote').textContent = 'Scan with any UPI app (GPay, PhonePe, Paytm) — amount ₹' + total + ' is pre-filled.';
+  } else {
+    document.getElementById('upiNote').textContent = 'Shop has not set up a UPI ID yet — please pay at the counter.';
+  }
+}
+
+async function startRazorpayCheckout(total) {
+  document.getElementById('confirmPayBtn').classList.add('hidden');
+  document.getElementById('upiNote').textContent = 'Opening secure payment window...';
+
+  const res = await fetch(API + '/api/razorpay/create-order', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ amount: total, localOrderId: currentOrder.id })
+  });
+  const data = await res.json();
+  if (!data.ok) {
+    document.getElementById('upiNote').textContent = 'Payment setup failed — please pay at the counter.';
+    return;
+  }
+
+  const options = {
+    key: serverConfig.razorpayKeyId,
+    amount: data.rpOrder.amount,
+    currency: 'INR',
+    name: 'NV Shop QuickPrint',
+    description: 'Order #' + currentOrder.id,
+    order_id: data.rpOrder.id,
+    handler: async function (response) {
+      document.getElementById('upiNote').textContent = 'Verifying payment...';
+      const verifyRes = await fetch(API + '/api/razorpay/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          razorpay_order_id: response.razorpay_order_id,
+          razorpay_payment_id: response.razorpay_payment_id,
+          razorpay_signature: response.razorpay_signature,
+          localOrderId: currentOrder.id
+        })
+      });
+      const verifyData = await verifyRes.json();
+      if (verifyData.ok) {
+        document.getElementById('payCard').classList.add('hidden');
+        document.getElementById('doneCard').classList.remove('hidden');
+        document.getElementById('orderIdDisplay').textContent = '#' + verifyData.order.id;
+      } else {
+        document.getElementById('upiNote').textContent = 'Payment verification failed — please show this screen at the counter.';
+      }
+    },
+    modal: {
+      ondismiss: function () {
+        document.getElementById('upiNote').textContent = 'Payment cancelled. Tap below to try again.';
+        document.getElementById('confirmPayBtn').classList.remove('hidden');
+        document.getElementById('confirmPayBtn').textContent = 'Retry Payment';
+        document.getElementById('confirmPayBtn').onclick = () => startRazorpayCheckout(total);
+      }
+    },
+    theme: { color: '#5b8def' }
+  };
+
+  const rzp = new Razorpay(options);
+  rzp.open();
+}
+
+document.getElementById('confirmPayBtn').addEventListener('click', async () => {
+  const res = await fetch(API + `/api/orders/${currentOrder.id}/pay`, { method: 'POST' });
+  const data = await res.json();
+  document.getElementById('payCard').classList.add('hidden');
+  document.getElementById('doneCard').classList.remove('hidden');
+  document.getElementById('orderIdDisplay').textContent = '#' + data.order.id;
+});
+document.getElementById('newOrderBtn').addEventListener('click', () => location.reload());
+
+refreshModeUI();
+</script>
+</body>
+</html>
